@@ -15,6 +15,8 @@ import { getUserEnrolledCourses } from "~/services/enrollmentService";
 import { calculateProgress, getCompletedLessonCount } from "~/services/progressService";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice } from "~/lib/ppp";
+import { getCourseAverageRating } from "~/services/ratingService";
+import { StarRating } from "~/components/star-rating";
 
 export function meta() {
   return [
@@ -60,12 +62,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     const pppPrice = course.pppEnabled
       ? calculatePppPrice(course.price, country)
       : course.price;
+    const { average: averageRating, count: ratingCount } =
+      getCourseAverageRating(course.id);
     return {
       ...course,
       lessonCount: getLessonCountForCourse(course.id),
       progress: userProgress?.progress ?? null,
       completedLessons: userProgress?.completedLessons ?? null,
       pppPrice,
+      averageRating,
+      ratingCount,
     };
   });
 
@@ -226,27 +232,34 @@ export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
                     </div>
                   </CardContent>
                 )}
-                <CardFooter className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <UserAvatar
-                      name={course.instructorName}
-                      avatarUrl={course.instructorAvatarUrl}
-                      className="size-5"
-                    />
-                    {course.instructorName}
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {course.pppPrice < course.price ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-xs line-through text-muted-foreground font-normal">
-                          {formatPrice(course.price)}
+                <CardFooter className="flex flex-col gap-2 text-xs text-muted-foreground">
+                  <div className="flex w-full items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <UserAvatar
+                        name={course.instructorName}
+                        avatarUrl={course.instructorAvatarUrl}
+                        className="size-5"
+                      />
+                      {course.instructorName}
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {course.pppPrice < course.price ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-xs line-through text-muted-foreground font-normal">
+                            {formatPrice(course.price)}
+                          </span>
+                          {formatPrice(course.pppPrice)}
                         </span>
-                        {formatPrice(course.pppPrice)}
-                      </span>
-                    ) : (
-                      formatPrice(course.price)
-                    )}
-                  </span>
+                      ) : (
+                        formatPrice(course.price)
+                      )}
+                    </span>
+                  </div>
+                  <StarRating
+                    average={course.averageRating}
+                    count={course.ratingCount}
+                    showEmpty
+                  />
                 </CardFooter>
               </Card>
             </Link>
