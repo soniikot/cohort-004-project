@@ -26,7 +26,7 @@ import {
   getBestAttempt,
 } from "~/services/quizService";
 import { computeResult } from "~/services/quizScoringService";
-import { LessonProgressStatus } from "~/db/schema";
+import { LessonProgressStatus, UserRole } from "~/db/schema";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -54,12 +54,31 @@ import { z } from "zod";
 import { resolveCountry } from "~/lib/country.server";
 import { checkPppAccess, COUNTRIES } from "~/lib/ppp";
 import { findPurchase } from "~/services/purchaseService";
-import { parseFormData, parseParams } from "~/lib/validation";
+import { parseParams } from "~/lib/validation";
+import { getUserById } from "~/services/userService";
+import {
+  getLessonComments,
+  getCommentCount,
+  getCommentById,
+  addComment,
+  addReply,
+  editComment,
+  deleteComment,
+  type CommentWithReplies,
+} from "~/services/commentService";
+import { LessonComments } from "~/components/lesson-comments";
 
 const lessonParamsSchema = z.object({
   slug: z.string().min(1),
   lessonId: z.coerce.number().int(),
 });
+
+const MAX_COMMENT_LENGTH = 2000;
+const commentBodySchema = z
+  .string()
+  .trim()
+  .min(1, "Comment cannot be empty")
+  .max(MAX_COMMENT_LENGTH, `Comment must be ${MAX_COMMENT_LENGTH} characters or fewer`);
 
 const markCompleteSchema = z.object({
   intent: z.literal("mark-complete"),
@@ -248,12 +267,32 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }
   }
 
+  // ─── Discussion ───
+  // Visible to enrolled students, the course instructor, and admins.
+  const isInstructor = currentUserId === course.instructorId;
+  const currentUser = currentUserId ? getUserById(currentUserId) : null;
+  const isAdmin = currentUser?.role === UserRole.Admin;
+  const canAccessDiscussion = enrolled || isInstructor || isAdmin;
+
+  let comments: CommentWithReplies[] = [];
+  let commentCount = 0;
+  if (canAccessDiscussion) {
+    comments = getLessonComments(lessonId);
+    commentCount = getCommentCount(lessonId);
+  }
+
   return {
     course: {
       id: courseWithDetails.id,
       title: courseWithDetails.title,
       slug: courseWithDetails.slug,
+      instructorId: course.instructorId,
     },
+    comments,
+    commentCount,
+    canAccessDiscussion,
+    canPostComment: enrolled || isInstructor || isAdmin,
+    isAdmin,
     curriculum: courseWithDetails.modules.map((m) => ({
       id: m.id,
       title: m.title,
@@ -331,6 +370,73 @@ export async function action({ params, request }: Route.ActionArgs) {
     return { quizResult: result };
   }
 
+  // ─── Discussion intents ───
+  if (
+    intent === "add-comment" ||
+    intent === "add-reply" ||
+    intent === "edit-comment" ||
+    intent === "delete-comment"
+  ) {
+    const isInstructor = currentUserId === course.instructorId;
+    const currentUser = getUserById(currentUserId);
+    const isAdmin = currentUser?.role === UserRole.Admin;
+    const canPost = isUserEnrolled(currentUserId, course.id) || isInstructor || isAdmin;
+
+    if (intent === "add-comment" || intent === "add-reply") {
+      if (!canPost) {
+        throw data("You don't have access to this discussion", { status: 403 });
+      }
+      const parsed = commentBodySchema.safeParse(formData.get("body"));
+      if (!parsed.success) {
+        return { commentError: parsed.error.issues[0].message };
+      }
+
+      if (intent === "add-comment") {
+        addComment(lessonId, currentUserId, parsed.data);
+      } else {
+        const parentId = Number(formData.get("parentId"));
+        if (isNaN(parentId)) {
+          throw data("Invalid parent comment", { status: 400 });
+        }
+        const reply = addReply(lessonId, currentUserId, parentId, parsed.data);
+        if (!reply) {
+          throw data("Comment not found", { status: 404 });
+        }
+      }
+      return { commentSuccess: true };
+    }
+
+    // edit / delete operate on a specific comment
+    const commentId = Number(formData.get("commentId"));
+    if (isNaN(commentId)) {
+      throw data("Invalid comment", { status: 400 });
+    }
+    const comment = getCommentById(commentId);
+    if (!comment || comment.lessonId !== lessonId) {
+      throw data("Comment not found", { status: 404 });
+    }
+    const isAuthor = comment.userId === currentUserId;
+
+    if (intent === "edit-comment") {
+      if (!isAuthor) {
+        throw data("You can only edit your own comments", { status: 403 });
+      }
+      const parsed = commentBodySchema.safeParse(formData.get("body"));
+      if (!parsed.success) {
+        return { commentError: parsed.error.issues[0].message };
+      }
+      editComment(commentId, parsed.data);
+      return { commentSuccess: true };
+    }
+
+    // delete-comment: author or admin
+    if (!isAuthor && !isAdmin) {
+      throw data("You can't delete this comment", { status: 403 });
+    }
+    deleteComment(commentId);
+    return { commentSuccess: true };
+  }
+
   throw data("Invalid action", { status: 400 });
 }
 
@@ -382,6 +488,11 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    commentCount,
+    canAccessDiscussion,
+    canPostComment,
+    isAdmin,
   } = loaderData;
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
@@ -590,6 +701,18 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
                 </fetcher.Form>
               )}
             </div>
+          )}
+
+          {/* Discussion */}
+          {canAccessDiscussion && (
+            <LessonComments
+              comments={comments}
+              commentCount={commentCount}
+              currentUserId={currentUserId}
+              instructorId={course.instructorId}
+              isAdmin={isAdmin}
+              canPost={canPostComment}
+            />
           )}
 
           {/* Prev/Next Navigation */}

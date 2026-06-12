@@ -4,6 +4,7 @@ import {
   integer,
   real,
   uniqueIndex,
+  type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 
 export enum UserRole {
@@ -267,6 +268,26 @@ export const courseRatings = sqliteTable(
     ),
   ]
 );
+
+export const lessonComments = sqliteTable("lesson_comments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  lessonId: integer("lesson_id")
+    .notNull()
+    .references(() => lessons.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  // Null for top-level comments. Replies store the *root* comment's id
+  // (one level of threading — replies never point at another reply).
+  parentId: integer("parent_id").references(
+    (): AnySQLiteColumn => lessonComments.id
+  ),
+  body: text("body").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  editedAt: text("edited_at"),
+});
 
 export const videoWatchEvents = sqliteTable("video_watch_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
