@@ -36,6 +36,13 @@
       "when": 1781241895398,
       "tag": "0004_perfect_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1781244694102,
+      "tag": "0005_workable_the_stranger",
+      "breakpoints": true
     }
   ]
 }
