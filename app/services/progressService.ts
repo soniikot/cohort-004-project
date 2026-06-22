@@ -11,9 +11,15 @@ import {
 
 // ─── Progress Service ───
 // Handles lesson completion tracking and course progress calculation.
-// Uses positional parameters (project convention).
+// Multi-parameter functions take an object parameter (project convention).
 
-export function getLessonProgress(userId: number, lessonId: number) {
+export function getLessonProgress({
+  userId,
+  lessonId,
+}: {
+  userId: number;
+  lessonId: number;
+}) {
   return db
     .select()
     .from(lessonProgress)
@@ -26,7 +32,13 @@ export function getLessonProgress(userId: number, lessonId: number) {
     .get();
 }
 
-export function getLessonProgressForCourse(userId: number, courseId: number) {
+export function getLessonProgressForCourse({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}) {
   const courseModules = db
     .select({ id: modules.id })
     .from(modules)
@@ -55,8 +67,14 @@ export function getLessonProgressForCourse(userId: number, courseId: number) {
     .all();
 }
 
-export function markLessonComplete(userId: number, lessonId: number) {
-  const existing = getLessonProgress(userId, lessonId);
+export function markLessonComplete({
+  userId,
+  lessonId,
+}: {
+  userId: number;
+  lessonId: number;
+}) {
+  const existing = getLessonProgress({ userId, lessonId });
 
   if (existing) {
     return db
@@ -82,8 +100,14 @@ export function markLessonComplete(userId: number, lessonId: number) {
     .get();
 }
 
-export function markLessonInProgress(userId: number, lessonId: number) {
-  const existing = getLessonProgress(userId, lessonId);
+export function markLessonInProgress({
+  userId,
+  lessonId,
+}: {
+  userId: number;
+  lessonId: number;
+}) {
+  const existing = getLessonProgress({ userId, lessonId });
 
   if (existing) {
     if (existing.status === LessonProgressStatus.Completed) {
@@ -108,7 +132,13 @@ export function markLessonInProgress(userId: number, lessonId: number) {
     .get();
 }
 
-export function resetLessonProgress(userId: number, lessonId: number) {
+export function resetLessonProgress({
+  userId,
+  lessonId,
+}: {
+  userId: number;
+  lessonId: number;
+}) {
   return db
     .delete(lessonProgress)
     .where(
@@ -139,12 +169,13 @@ function getCourseLessonIds(courseId: number): number[] {
   return courseLessons.map((l) => l.id);
 }
 
-export function calculateProgress(
-  userId: number,
-  courseId: number,
-  includeQuizzes: boolean,
-  weightByDuration: boolean
-) {
+export function calculateProgress(opts: {
+  userId: number;
+  courseId: number;
+  includeQuizzes: boolean;
+  weightByDuration: boolean;
+}) {
+  const { userId, courseId, weightByDuration } = opts;
   const lessonIds = getCourseLessonIds(courseId);
 
   if (lessonIds.length === 0) return 0;
@@ -202,7 +233,13 @@ export function calculateProgress(
   return Math.round(((completedCount?.count ?? 0) / lessonIds.length) * 100);
 }
 
-export function getCompletedLessonCount(userId: number, courseId: number) {
+export function getCompletedLessonCount({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}) {
   const lessonIds = getCourseLessonIds(courseId);
   if (lessonIds.length === 0) return 0;
 
@@ -225,12 +262,24 @@ export function getTotalLessonCount(courseId: number) {
   return getCourseLessonIds(courseId).length;
 }
 
-export function isLessonCompleted(userId: number, lessonId: number) {
-  const progress = getLessonProgress(userId, lessonId);
+export function isLessonCompleted({
+  userId,
+  lessonId,
+}: {
+  userId: number;
+  lessonId: number;
+}) {
+  const progress = getLessonProgress({ userId, lessonId });
   return progress?.status === LessonProgressStatus.Completed;
 }
 
-export function getNextIncompleteLesson(userId: number, courseId: number) {
+export function getNextIncompleteLesson({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}) {
   const courseModules = db
     .select()
     .from(modules)
@@ -249,7 +298,7 @@ export function getNextIncompleteLesson(userId: number, courseId: number) {
       .all();
 
     for (const lesson of moduleLessons) {
-      const progress = getLessonProgress(userId, lesson.id);
+      const progress = getLessonProgress({ userId, lessonId: lesson.id });
       if (!progress || progress.status !== LessonProgressStatus.Completed) {
         return lesson;
       }
@@ -259,10 +308,13 @@ export function getNextIncompleteLesson(userId: number, courseId: number) {
   return null;
 }
 
-export function getRecentlyProgressedCourses(
-  userId: number,
-  limit: number = 3
-) {
+export function getRecentlyProgressedCourses({
+  userId,
+  limit = 3,
+}: {
+  userId: number;
+  limit?: number;
+}) {
   return db
     .select({
       courseId: courses.id,

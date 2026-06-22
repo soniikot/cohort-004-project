@@ -11,7 +11,7 @@ import {
 
 // ─── Course Service ───
 // Handles course CRUD, search, category filtering, and status transitions.
-// Uses positional parameters (project convention).
+// Multi-parameter functions take an object parameter (project convention).
 
 export function getAllCourses() {
   return db.select().from(courses).all();
@@ -49,14 +49,15 @@ export function getPublishedCourses() {
   return getCoursesByStatus(CourseStatus.Published);
 }
 
-export function buildCourseQuery(
-  search: string | null,
-  category: string | null,
-  status: CourseStatus | null,
-  sortBy: string | null,
-  limit: number,
-  offset: number
-) {
+export function buildCourseQuery(opts: {
+  search: string | null;
+  category: string | null;
+  status: CourseStatus | null;
+  sortBy: string | null;
+  limit: number;
+  offset: number;
+}) {
+  const { search, category, status, sortBy, limit, offset } = opts;
   const conditions = [];
 
   if (status) {
@@ -185,14 +186,22 @@ export function getLessonCountForCourse(courseId: number) {
   return count?.count ?? 0;
 }
 
-export function createCourse(
-  title: string,
-  slug: string,
-  description: string,
-  instructorId: number,
-  categoryId: number,
-  coverImageUrl: string | null
-) {
+export function createCourse(opts: {
+  title: string;
+  slug: string;
+  description: string;
+  instructorId: number;
+  categoryId: number;
+  coverImageUrl: string | null;
+}) {
+  const {
+    title,
+    slug,
+    description,
+    instructorId,
+    categoryId,
+    coverImageUrl,
+  } = opts;
   return db
     .insert(courses)
     .values({
@@ -208,7 +217,15 @@ export function createCourse(
     .get();
 }
 
-export function updateCourse(id: number, title: string, description: string) {
+export function updateCourse({
+  id,
+  title,
+  description,
+}: {
+  id: number;
+  title: string;
+  description: string;
+}) {
   return db
     .update(courses)
     .set({ title, description, updatedAt: new Date().toISOString() })

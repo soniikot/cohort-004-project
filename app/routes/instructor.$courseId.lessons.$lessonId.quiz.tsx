@@ -237,11 +237,11 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
 
     // Create the quiz
-    const quiz = createQuiz(
+    const quiz = createQuiz({
       lessonId,
-      wizardData.title.trim(),
-      wizardData.passingScore / 100
-    );
+      title: wizardData.title.trim(),
+      passingScore: wizardData.passingScore / 100,
+    });
 
     // Create questions and options
     for (let qi = 0; qi < wizardData.questions.length; qi++) {
@@ -627,7 +627,13 @@ export default function QuizBuilderWizard({
     }));
   }
 
-  function removeOption(questionId: string, optionId: string) {
+  function removeOption({
+    questionId,
+    optionId,
+  }: {
+    questionId: string;
+    optionId: string;
+  }) {
     setWizard((prev) => ({
       ...prev,
       questions: prev.questions.map((q) =>
@@ -638,11 +644,15 @@ export default function QuizBuilderWizard({
     }));
   }
 
-  function updateOption(
-    questionId: string,
-    optionId: string,
-    updates: Partial<WizardOption>
-  ) {
+  function updateOption({
+    questionId,
+    optionId,
+    updates,
+  }: {
+    questionId: string;
+    optionId: string;
+    updates: Partial<WizardOption>;
+  }) {
     setWizard((prev) => ({
       ...prev,
       questions: prev.questions.map((q) => {
@@ -658,7 +668,13 @@ export default function QuizBuilderWizard({
     }));
   }
 
-  function setCorrectOption(questionId: string, optionId: string) {
+  function setCorrectOption({
+    questionId,
+    optionId,
+  }: {
+    questionId: string;
+    optionId: string;
+  }) {
     setWizard((prev) => ({
       ...prev,
       questions: prev.questions.map((q) => {
@@ -713,7 +729,9 @@ export default function QuizBuilderWizard({
                     <div key={opt.id} className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setCorrectOption(q.id, opt.id)}
+                        onClick={() =>
+                          setCorrectOption({ questionId: q.id, optionId: opt.id })
+                        }
                         className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                           opt.isCorrect
                             ? "border-green-500 bg-green-500 text-white"
@@ -728,8 +746,10 @@ export default function QuizBuilderWizard({
                         <Input
                           value={opt.text}
                           onChange={(e) =>
-                            updateOption(q.id, opt.id, {
-                              text: e.target.value,
+                            updateOption({
+                              questionId: q.id,
+                              optionId: opt.id,
+                              updates: { text: e.target.value },
                             })
                           }
                           placeholder="Enter option text..."
@@ -741,7 +761,9 @@ export default function QuizBuilderWizard({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeOption(q.id, opt.id)}
+                            onClick={() =>
+                              removeOption({ questionId: q.id, optionId: opt.id })
+                            }
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="size-3" />

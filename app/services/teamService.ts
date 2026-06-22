@@ -10,11 +10,15 @@ export function createTeam() {
   return db.insert(teams).values({}).returning().get();
 }
 
-export function addTeamMember(
-  teamId: number,
-  userId: number,
-  role: TeamMemberRole
-) {
+export function addTeamMember({
+  teamId,
+  userId,
+  role,
+}: {
+  teamId: number;
+  userId: number;
+  role: TeamMemberRole;
+}) {
   return db
     .insert(teamMembers)
     .values({ teamId, userId, role })
@@ -44,7 +48,7 @@ export function getOrCreateTeamForUser(userId: number) {
   if (existingTeam) return existingTeam;
 
   const team = createTeam();
-  addTeamMember(team.id, userId, TeamMemberRole.Admin);
+  addTeamMember({ teamId: team.id, userId, role: TeamMemberRole.Admin });
   return team;
 }
 

@@ -84,25 +84,33 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let bookmarkedLessonIds: number[] = [];
 
   if (currentUserId) {
-    enrolled = isUserEnrolled(currentUserId, course.id);
+    enrolled = isUserEnrolled({ userId: currentUserId, courseId: course.id });
 
     if (enrolled) {
-      progress = calculateProgress(currentUserId, course.id, false, false);
+      progress = calculateProgress({
+        userId: currentUserId,
+        courseId: course.id,
+        includeQuizzes: false,
+        weightByDuration: false,
+      });
 
       bookmarkedLessonIds = getBookmarkedLessonIds({
         userId: currentUserId,
         courseId: course.id,
       });
 
-      const progressRecords = getLessonProgressForCourse(
-        currentUserId,
-        course.id
-      );
+      const progressRecords = getLessonProgressForCourse({
+        userId: currentUserId,
+        courseId: course.id,
+      });
       for (const record of progressRecords) {
         lessonProgressMap[record.lessonId] = record.status;
       }
 
-      const nextLesson = getNextIncompleteLesson(currentUserId, course.id);
+      const nextLesson = getNextIncompleteLesson({
+        userId: currentUserId,
+        courseId: course.id,
+      });
       nextLessonId = nextLesson?.id ?? null;
     }
   }
@@ -122,7 +130,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     getCourseAverageRating(course.id);
   const userRating =
     currentUserId && enrolled
-      ? getUserCourseRating(currentUserId, course.id)
+      ? getUserCourseRating({ userId: currentUserId, courseId: course.id })
       : null;
 
   return {
@@ -157,7 +165,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     const course = getCourseBySlug(slug);
     if (!course) return data("Course not found", { status: 404 });
 
-    const enrolled = isUserEnrolled(currentUserId, course.id);
+    const enrolled = isUserEnrolled({ userId: currentUserId, courseId: course.id });
     if (!enrolled) return data("Must be enrolled to rate", { status: 403 });
 
     const rating = Number(formData.get("rating"));
@@ -165,7 +173,7 @@ export async function action({ params, request }: Route.ActionArgs) {
       return data("Invalid rating", { status: 400 });
     }
 
-    upsertCourseRating(currentUserId, course.id, rating);
+    upsertCourseRating({ userId: currentUserId, courseId: course.id, rating });
     return { ok: true };
   }
 

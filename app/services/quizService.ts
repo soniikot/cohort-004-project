@@ -11,7 +11,7 @@ import {
 
 // ─── Quiz Service ───
 // Handles quiz CRUD, question/option management, and attempt recording.
-// Uses positional parameters (project convention).
+// Multi-parameter functions take an object parameter (project convention).
 
 // ─── Quiz CRUD ───
 
@@ -46,11 +46,15 @@ export function getQuizWithQuestions(quizId: number) {
   return { ...quiz, questions: questionsWithOptions };
 }
 
-export function createQuiz(
-  lessonId: number,
-  title: string,
-  passingScore: number
-) {
+export function createQuiz({
+  lessonId,
+  title,
+  passingScore,
+}: {
+  lessonId: number;
+  title: string;
+  passingScore: number;
+}) {
   return db
     .insert(quizzes)
     .values({ lessonId, title, passingScore })
@@ -179,10 +183,13 @@ export function deleteQuestion(id: number) {
 
 // ─── Question Reordering ───
 
-export function moveQuestionToPosition(
-  questionId: number,
-  newPosition: number
-) {
+export function moveQuestionToPosition({
+  questionId,
+  newPosition,
+}: {
+  questionId: number;
+  newPosition: number;
+}) {
   const question = getQuestionById(questionId);
   if (!question) return null;
 
@@ -293,7 +300,13 @@ export function getAttemptById(id: number) {
   return db.select().from(quizAttempts).where(eq(quizAttempts.id, id)).get();
 }
 
-export function getAttemptsByUser(userId: number, quizId: number) {
+export function getAttemptsByUser({
+  userId,
+  quizId,
+}: {
+  userId: number;
+  quizId: number;
+}) {
   return db
     .select()
     .from(quizAttempts)
@@ -313,7 +326,13 @@ export function getAttemptCountForQuiz(quizId: number) {
   return result?.count ?? 0;
 }
 
-export function getBestAttempt(userId: number, quizId: number) {
+export function getBestAttempt({
+  userId,
+  quizId,
+}: {
+  userId: number;
+  quizId: number;
+}) {
   return db
     .select()
     .from(quizAttempts)
@@ -325,7 +344,13 @@ export function getBestAttempt(userId: number, quizId: number) {
     .get();
 }
 
-export function getLatestAttempt(userId: number, quizId: number) {
+export function getLatestAttempt({
+  userId,
+  quizId,
+}: {
+  userId: number;
+  quizId: number;
+}) {
   return db
     .select()
     .from(quizAttempts)
@@ -337,12 +362,17 @@ export function getLatestAttempt(userId: number, quizId: number) {
     .get();
 }
 
-export function recordAttempt(
-  userId: number,
-  quizId: number,
-  score: number,
-  passed: boolean
-) {
+export function recordAttempt({
+  userId,
+  quizId,
+  score,
+  passed,
+}: {
+  userId: number;
+  quizId: number;
+  score: number;
+  passed: boolean;
+}) {
   return db
     .insert(quizAttempts)
     .values({ userId, quizId, score, passed })
@@ -350,11 +380,15 @@ export function recordAttempt(
     .get();
 }
 
-export function recordAnswer(
-  attemptId: number,
-  questionId: number,
-  selectedOptionId: number
-) {
+export function recordAnswer({
+  attemptId,
+  questionId,
+  selectedOptionId,
+}: {
+  attemptId: number;
+  questionId: number;
+  selectedOptionId: number;
+}) {
   return db
     .insert(quizAnswers)
     .values({ attemptId, questionId, selectedOptionId })

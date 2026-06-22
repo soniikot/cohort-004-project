@@ -4,7 +4,7 @@ import { lessons } from "~/db/schema";
 
 // ─── Lesson Service ───
 // Handles lesson CRUD and reordering within modules.
-// Uses positional parameters (project convention).
+// Multi-parameter functions take an object parameter (project convention).
 
 export function getLessonById(id: number) {
   return db.select().from(lessons).where(eq(lessons.id, id)).get();
@@ -28,14 +28,16 @@ export function getLessonCount(moduleId: number) {
   return result?.count ?? 0;
 }
 
-export function createLesson(
-  moduleId: number,
-  title: string,
-  content: string | null,
-  videoUrl: string | null,
-  position: number | null,
-  durationMinutes: number | null
-) {
+export function createLesson(opts: {
+  moduleId: number;
+  title: string;
+  content: string | null;
+  videoUrl: string | null;
+  position: number | null;
+  durationMinutes: number | null;
+}) {
+  const { moduleId, title, content, videoUrl, position, durationMinutes } =
+    opts;
   const pos =
     position ??
     db
@@ -58,14 +60,22 @@ export function createLesson(
     .get();
 }
 
-export function updateLesson(
-  id: number,
-  title: string | null,
-  content: string | null,
-  videoUrl: string | null,
-  durationMinutes: number | null,
-  githubRepoUrl: string | null = null
-) {
+export function updateLesson(opts: {
+  id: number;
+  title: string | null;
+  content: string | null;
+  videoUrl: string | null;
+  durationMinutes: number | null;
+  githubRepoUrl?: string | null;
+}) {
+  const {
+    id,
+    title,
+    content,
+    videoUrl,
+    durationMinutes,
+    githubRepoUrl = null,
+  } = opts;
   const updates: Record<string, unknown> = {};
   if (title !== null) updates.title = title;
   if (content !== null) updates.content = content;
@@ -109,7 +119,13 @@ export function deleteLesson(id: number) {
 
 // ─── Reordering ───
 
-export function moveLessonToPosition(lessonId: number, newPosition: number) {
+export function moveLessonToPosition({
+  lessonId,
+  newPosition,
+}: {
+  lessonId: number;
+  newPosition: number;
+}) {
   const lesson = getLessonById(lessonId);
   if (!lesson) return null;
 
@@ -150,7 +166,13 @@ export function moveLessonToPosition(lessonId: number, newPosition: number) {
     .get();
 }
 
-export function swapLessonPositions(lessonIdA: number, lessonIdB: number) {
+export function swapLessonPositions({
+  lessonIdA,
+  lessonIdB,
+}: {
+  lessonIdA: number;
+  lessonIdB: number;
+}) {
   const lessonA = getLessonById(lessonIdA);
   const lessonB = getLessonById(lessonIdB);
   if (!lessonA || !lessonB) return null;
@@ -185,11 +207,15 @@ export function reorderLessons(moduleId: number, lessonIds: number[]) {
  * Move a lesson from one module to another at a specific position.
  * Closes the gap in the source module and opens a gap in the destination module.
  */
-export function moveLessonToModule(
-  lessonId: number,
-  targetModuleId: number,
-  targetPosition: number
-) {
+export function moveLessonToModule({
+  lessonId,
+  targetModuleId,
+  targetPosition,
+}: {
+  lessonId: number;
+  targetModuleId: number;
+  targetPosition: number;
+}) {
   const lesson = getLessonById(lessonId);
   if (!lesson) return null;
 

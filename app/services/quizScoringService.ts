@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "~/db";
 import {
   quizzes,
@@ -7,11 +7,14 @@ import {
   quizAttempts,
   quizAnswers,
 } from "~/db/schema";
-import Database from "better-sqlite3";
 
-const rawDb = new Database("data.db");
-
-function scoreMultipleChoiceQuestions(quizData: any, answers: any): any {
+function scoreMultipleChoiceQuestions({
+  quizData,
+  answers,
+}: {
+  quizData: any;
+  answers: any;
+}): any {
   let correctCount = 0;
   let totalMC = 0;
 
@@ -52,7 +55,13 @@ function scoreMultipleChoiceQuestions(quizData: any, answers: any): any {
   };
 }
 
-function scoreTrueFalseQuestions(quizData: any, answers: any): any {
+function scoreTrueFalseQuestions({
+  quizData,
+  answers,
+}: {
+  quizData: any;
+  answers: any;
+}): any {
   let correctCount = 0;
   let totalTF = 0;
 
@@ -94,11 +103,16 @@ function scoreTrueFalseQuestions(quizData: any, answers: any): any {
   };
 }
 
-export function getScore(quizId: any, answers: any): any {
+export function getScore({
+  quizId,
+  answers,
+}: {
+  quizId: any;
+  answers: any;
+}): any {
   try {
     const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
     if (!quiz) {
-      console.log("Quiz not found: " + quizId);
       return { score: 0, passed: false, grade: "F" };
     }
 
@@ -111,8 +125,8 @@ export function getScore(quizId: any, answers: any): any {
 
     const quizData = { ...quiz, questions };
 
-    const mcResult = scoreMultipleChoiceQuestions(quizData, answers);
-    const tfResult = scoreTrueFalseQuestions(quizData, answers);
+    const mcResult = scoreMultipleChoiceQuestions({ quizData, answers });
+    const tfResult = scoreTrueFalseQuestions({ quizData, answers });
 
     const totalCorrect = mcResult.correct + tfResult.correct;
     const totalQuestions = mcResult.total + tfResult.total;
@@ -162,15 +176,18 @@ export function calculateGrade(score: any): any {
   }
 }
 
-export function computeResult(
-  userId: any,
-  quizId: any,
-  selectedAnswers: any
-): any {
+export function computeResult({
+  userId,
+  quizId,
+  selectedAnswers,
+}: {
+  userId: any;
+  quizId: any;
+  selectedAnswers: any;
+}): any {
   try {
     const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
     if (!quiz) {
-      console.log("quiz not found");
       return null;
     }
 
@@ -275,39 +292,20 @@ export function computeResult(
   }
 }
 
-export function getQuizStats(quizId: any): any {
-  try {
-    const rows: any = rawDb
-      .prepare(
-        `SELECT
-        COUNT(*) as total_attempts,
-        AVG(score) as avg_score,
-        MAX(score) as high_score,
-        MIN(score) as low_score,
-        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as pass_count
-      FROM quiz_attempts WHERE quiz_id = ?`
-      )
-      .get(quizId);
+export function getQuizStats(quizId: number) {
+  const row = db
+    .select({
+      totalAttempts: sql<number>`count(*)`,
+      averageScore: sql<number | null>`avg(${quizAttempts.score})`,
+      highScore: sql<number | null>`max(${quizAttempts.score})`,
+      lowScore: sql<number | null>`min(${quizAttempts.score})`,
+      passCount: sql<number>`sum(case when ${quizAttempts.passed} = 1 then 1 else 0 end)`,
+    })
+    .from(quizAttempts)
+    .where(eq(quizAttempts.quizId, quizId))
+    .get();
 
-    if (!rows || rows.total_attempts === 0) {
-      return {
-        totalAttempts: 0,
-        averageScore: 0,
-        highScore: 0,
-        lowScore: 0,
-        passRate: 0,
-      };
-    }
-
-    return {
-      totalAttempts: rows.total_attempts,
-      averageScore: rows.avg_score,
-      highScore: rows.high_score,
-      lowScore: rows.low_score,
-      passRate: rows.pass_count / rows.total_attempts,
-    };
-  } catch (e) {
-    console.log(e);
+  if (!row || row.totalAttempts === 0) {
     return {
       totalAttempts: 0,
       averageScore: 0,
@@ -316,49 +314,57 @@ export function getQuizStats(quizId: any): any {
       passRate: 0,
     };
   }
+
+  return {
+    totalAttempts: row.totalAttempts,
+    averageScore: row.averageScore ?? 0,
+    highScore: row.highScore ?? 0,
+    lowScore: row.lowScore ?? 0,
+    passRate: (row.passCount ?? 0) / row.totalAttempts,
+  };
 }
 
-export function getUserQuizHistory(userId: any, quizId: any): any {
-  try {
-    const attempts = rawDb
-      .prepare(
-        `SELECT id, score, passed, attempted_at FROM quiz_attempts
-       WHERE user_id = ? AND quiz_id = ?
-       ORDER BY attempted_at DESC`
-      )
-      .all(userId, quizId) as any[];
+export function getUserQuizHistory({
+  userId,
+  quizId,
+}: {
+  userId: number;
+  quizId: number;
+}) {
+  const attempts = db
+    .select({
+      id: quizAttempts.id,
+      score: quizAttempts.score,
+      passed: quizAttempts.passed,
+      attemptedAt: quizAttempts.attemptedAt,
+    })
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.userId, userId), eq(quizAttempts.quizId, quizId)))
+    .orderBy(desc(quizAttempts.attemptedAt))
+    .all();
 
-    const results = [];
-    for (const attempt of attempts) {
-      let grade = "F";
-      if (attempt.score >= 0.9) grade = "A";
-      else if (attempt.score >= 0.8) grade = "B";
-      else if (attempt.score >= 0.7) grade = "C";
-      else if (attempt.score >= 0.6) grade = "D";
-
-      results.push({
-        attemptId: attempt.id,
-        score: attempt.score,
-        passed: attempt.passed === 1,
-        grade,
-        attemptedAt: attempt.attempted_at,
-      });
-    }
-
-    return results;
-  } catch (e) {
-    console.log(e);
-    return [];
-  }
+  return attempts.map((attempt) => ({
+    attemptId: attempt.id,
+    score: attempt.score,
+    passed: attempt.passed,
+    grade: calculateGrade(attempt.score),
+    attemptedAt: attempt.attemptedAt,
+  }));
 }
 
-export function renderQuizResults(
-  score: any,
-  total: any,
-  passed: any,
-  showAnswers: any,
-  showExplanations: any
-): any {
+export function renderQuizResults({
+  score,
+  total,
+  passed,
+  showAnswers,
+  showExplanations,
+}: {
+  score: any;
+  total: any;
+  passed: any;
+  showAnswers: any;
+  showExplanations: any;
+}): any {
   try {
     const percentage = total > 0 ? score / total : 0;
     let grade = "F";

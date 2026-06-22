@@ -159,10 +159,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const students = enrolledStudents.map((enrollment) => {
     const studentUser = getUserById(enrollment.userId);
-    const progress = calculateProgress(enrollment.userId, courseId, false, false);
+    const progress = calculateProgress({
+      userId: enrollment.userId,
+      courseId,
+      includeQuizzes: false,
+      weightByDuration: false,
+    });
 
     const quizScores = lessonQuizzes.map((lq) => {
-      const bestAttempt = getBestAttempt(enrollment.userId, lq.quizId);
+      const bestAttempt = getBestAttempt({
+        userId: enrollment.userId,
+        quizId: lq.quizId,
+      });
       return {
         quizId: lq.quizId,
         quizTitle: lq.quizTitle,
@@ -221,12 +229,20 @@ export async function action({ params, request }: Route.ActionArgs) {
   const { intent } = parsed.data;
 
   if (intent === "update-title") {
-    updateCourse(courseId, parsed.data.title, course.description);
+    updateCourse({
+      id: courseId,
+      title: parsed.data.title,
+      description: course.description,
+    });
     return { success: true, field: "title" };
   }
 
   if (intent === "update-description") {
-    updateCourse(courseId, course.title, parsed.data.description);
+    updateCourse({
+      id: courseId,
+      title: course.title,
+      description: parsed.data.description,
+    });
     return { success: true, field: "description" };
   }
 
@@ -285,7 +301,14 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!mod || mod.courseId !== courseId) {
       return data({ error: "Module not found in this course." }, { status: 404 });
     }
-    createLesson(moduleId, title, null, null, null, null);
+    createLesson({
+      moduleId,
+      title,
+      content: null,
+      videoUrl: null,
+      position: null,
+      durationMinutes: null,
+    });
     return { success: true, field: "lesson" };
   }
 
@@ -334,7 +357,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!targetMod || targetMod.courseId !== courseId) {
       return data({ error: "Target module not found in this course." }, { status: 404 });
     }
-    moveLessonToModule(lessonId, targetModuleId, targetPosition);
+    moveLessonToModule({ lessonId, targetModuleId, targetPosition });
     return { success: true, field: "lesson-move" };
   }
 

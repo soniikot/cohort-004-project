@@ -96,7 +96,15 @@ export function getCommentCount(lessonId: number): number {
     .all().length;
 }
 
-export function addComment(lessonId: number, userId: number, body: string) {
+export function addComment({
+  lessonId,
+  userId,
+  body,
+}: {
+  lessonId: number;
+  userId: number;
+  body: string;
+}) {
   return db
     .insert(lessonComments)
     .values({ lessonId, userId, parentId: null, body })
@@ -109,12 +117,17 @@ export function addComment(lessonId: number, userId: number, body: string) {
  * a reply, the reply is re-parented to that reply's root, preserving the
  * single-level threading invariant.
  */
-export function addReply(
-  lessonId: number,
-  userId: number,
-  parentCommentId: number,
-  body: string
-) {
+export function addReply({
+  lessonId,
+  userId,
+  parentCommentId,
+  body,
+}: {
+  lessonId: number;
+  userId: number;
+  parentCommentId: number;
+  body: string;
+}) {
   const parent = getCommentById(parentCommentId);
   if (!parent || parent.lessonId !== lessonId) return null;
   const rootId = parent.parentId ?? parent.id;

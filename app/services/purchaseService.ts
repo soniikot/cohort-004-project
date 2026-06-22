@@ -6,14 +6,19 @@ import { generateCoupons } from "./couponService";
 
 // ─── Purchase Service ───
 // Handles purchase records (transaction log separate from enrollments).
-// Uses positional parameters (project convention).
+// Multi-parameter functions take an object parameter (project convention).
 
-export function createPurchase(
-  userId: number,
-  courseId: number,
-  pricePaid: number,
-  country: string | null
-) {
+export function createPurchase({
+  userId,
+  courseId,
+  pricePaid,
+  country,
+}: {
+  userId: number;
+  courseId: number;
+  pricePaid: number;
+  country: string | null;
+}) {
   return db
     .insert(purchases)
     .values({ userId, courseId, pricePaid, country })
@@ -21,7 +26,13 @@ export function createPurchase(
     .get();
 }
 
-export function findPurchase(userId: number, courseId: number) {
+export function findPurchase({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}) {
   return db
     .select()
     .from(purchases)
@@ -43,15 +54,21 @@ export function getPurchasesByCourse(courseId: number) {
 
 // ─── Team Purchase ───
 
-export function createTeamPurchase(
-  userId: number,
-  courseId: number,
-  pricePaid: number,
-  country: string | null,
-  quantity: number
-) {
-  const purchase = createPurchase(userId, courseId, pricePaid, country);
+export function createTeamPurchase(opts: {
+  userId: number;
+  courseId: number;
+  pricePaid: number;
+  country: string | null;
+  quantity: number;
+}) {
+  const { userId, courseId, pricePaid, country, quantity } = opts;
+  const purchase = createPurchase({ userId, courseId, pricePaid, country });
   const team = getOrCreateTeamForUser(userId);
-  const coupons = generateCoupons(team.id, courseId, purchase.id, quantity);
+  const coupons = generateCoupons({
+    teamId: team.id,
+    courseId,
+    purchaseId: purchase.id,
+    quantity,
+  });
   return { purchase, team, coupons };
 }

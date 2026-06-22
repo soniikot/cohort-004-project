@@ -48,7 +48,7 @@ beforeEach(() => {
 
 describe("addComment / getLessonComments", () => {
   it("creates a top-level comment with author info", () => {
-    addComment(lessonId, base.user.id, "First!");
+    addComment({ lessonId, userId: base.user.id, body: "First!" });
 
     const comments = getLessonComments(lessonId);
     expect(comments).toHaveLength(1);
@@ -58,9 +58,9 @@ describe("addComment / getLessonComments", () => {
   });
 
   it("orders top-level comments newest-first", () => {
-    const a = addComment(lessonId, base.user.id, "older");
+    const a = addComment({ lessonId, userId: base.user.id, body: "older" });
     // Force a later timestamp on the second comment
-    const b = addComment(lessonId, base.user.id, "newer");
+    const b = addComment({ lessonId, userId: base.user.id, body: "newer" });
     testDb
       .update(schema.lessonComments)
       .set({ createdAt: "2020-01-01T00:00:00.000Z" })
@@ -79,9 +79,9 @@ describe("addComment / getLessonComments", () => {
 
 describe("addReply", () => {
   it("nests replies under their root, oldest-first", () => {
-    const root = addComment(lessonId, base.user.id, "question");
-    const r1 = addReply(lessonId, base.instructor.id, root.id, "answer 1");
-    const r2 = addReply(lessonId, base.user.id, root.id, "answer 2");
+    const root = addComment({ lessonId, userId: base.user.id, body: "question" });
+    const r1 = addReply({ lessonId, userId: base.instructor.id, parentCommentId: root.id, body: "answer 1" });
+    const r2 = addReply({ lessonId, userId: base.user.id, parentCommentId: root.id, body: "answer 2" });
     testDb
       .update(schema.lessonComments)
       .set({ createdAt: "2025-01-01T00:00:00.000Z" })
@@ -102,9 +102,9 @@ describe("addReply", () => {
   });
 
   it("re-parents a reply-to-a-reply onto the root (one-level threading)", () => {
-    const root = addComment(lessonId, base.user.id, "root");
-    const reply = addReply(lessonId, base.user.id, root.id, "reply");
-    const nested = addReply(lessonId, base.user.id, reply!.id, "nested");
+    const root = addComment({ lessonId, userId: base.user.id, body: "root" });
+    const reply = addReply({ lessonId, userId: base.user.id, parentCommentId: root.id, body: "reply" });
+    const nested = addReply({ lessonId, userId: base.user.id, parentCommentId: reply!.id, body: "nested" });
 
     // nested should point at the root, not at the reply
     expect(getCommentById(nested!.id)?.parentId).toBe(root.id);
@@ -113,13 +113,13 @@ describe("addReply", () => {
   });
 
   it("returns null for an unknown parent", () => {
-    expect(addReply(lessonId, base.user.id, 9999, "orphan")).toBeNull();
+    expect(addReply({ lessonId, userId: base.user.id, parentCommentId: 9999, body: "orphan" })).toBeNull();
   });
 });
 
 describe("editComment", () => {
   it("updates the body and stamps editedAt", () => {
-    const c = addComment(lessonId, base.user.id, "typo");
+    const c = addComment({ lessonId, userId: base.user.id, body: "typo" });
     expect(getCommentById(c.id)?.editedAt).toBeNull();
 
     editComment(c.id, "fixed");
@@ -131,8 +131,8 @@ describe("editComment", () => {
 
 describe("deleteComment", () => {
   it("deletes a reply without touching its root", () => {
-    const root = addComment(lessonId, base.user.id, "root");
-    const reply = addReply(lessonId, base.user.id, root.id, "reply");
+    const root = addComment({ lessonId, userId: base.user.id, body: "root" });
+    const reply = addReply({ lessonId, userId: base.user.id, parentCommentId: root.id, body: "reply" });
 
     deleteComment(reply!.id);
 
@@ -141,9 +141,9 @@ describe("deleteComment", () => {
   });
 
   it("cascades to replies when a root is deleted", () => {
-    const root = addComment(lessonId, base.user.id, "root");
-    addReply(lessonId, base.user.id, root.id, "reply 1");
-    addReply(lessonId, base.user.id, root.id, "reply 2");
+    const root = addComment({ lessonId, userId: base.user.id, body: "root" });
+    addReply({ lessonId, userId: base.user.id, parentCommentId: root.id, body: "reply 1" });
+    addReply({ lessonId, userId: base.user.id, parentCommentId: root.id, body: "reply 2" });
     expect(getCommentCount(lessonId)).toBe(3);
 
     deleteComment(root.id);

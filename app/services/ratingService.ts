@@ -2,11 +2,15 @@ import { eq, and, avg, count, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { courseRatings } from "~/db/schema";
 
-export function upsertCourseRating(
-  userId: number,
-  courseId: number,
-  rating: number
-) {
+export function upsertCourseRating({
+  userId,
+  courseId,
+  rating,
+}: {
+  userId: number;
+  courseId: number;
+  rating: number;
+}) {
   return db
     .insert(courseRatings)
     .values({ userId, courseId, rating })
@@ -17,10 +21,13 @@ export function upsertCourseRating(
     .run();
 }
 
-export function getUserCourseRating(
-  userId: number,
-  courseId: number
-): number | null {
+export function getUserCourseRating({
+  userId,
+  courseId,
+}: {
+  userId: number;
+  courseId: number;
+}): number | null {
   const row = db
     .select({ rating: courseRatings.rating })
     .from(courseRatings)
